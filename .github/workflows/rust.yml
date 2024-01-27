@@ -1,46 +1,70 @@
 name: Rust Release
 
+# 定义工作流触发条件，这里是当有新标签被推送到仓库时，并且标签名匹配模式 'v*'
 on:
   push:
     tags:
-      - "v*" # 对于匹配 v*的标签（如 v1.0、v2.5.7）的push事件。
+      - 'v*'
 
 jobs:
   build:
+    # 使用矩阵策略为多个目标平台构建项目
     strategy:
       matrix:
-        target: [x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl] # 定义构建的目标平台
-    runs-on: ubuntu-20.04 # 这个作业运行在最新版的Ubuntu上
+        target: [x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl]
+    runs-on: ubuntu-20.04 # 指定运行环境
 
+    # 构建步骤
     steps:
-    - name: Checkout source # 获取源码
-      uses: actions/checkout@v2
+      - name: Checkout source
+        uses: actions/checkout@v2 # 检出代码
 
-    - name: Install dependencies
-      run: sudo sed -i "s#archive.ubuntu.com#mirrors.aliyun.com#g" /etc/apt/sources.list && sudo sed -i "s#security.ubuntu.com#mirrors.aliyun.com#g" /etc/apt/sources.list && sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Install dependencies
+        run: |
+          # 更换 Ubuntu 软件源为阿里云，加速下载速度
+          sudo sed -i "s#archive.ubuntu.com#mirrors.aliyun.com#g" /etc/apt/sources.list
+          sudo sed -i "s#security.ubuntu.com#mirrors.aliyun.com#g" /etc/apt/sources.list
+          sudo apt-get update && sudo apt-get install -y musl-tools
 
-    - name: Setup Rust environment # 设置Rust环境
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        target: ${{ matrix.target }} # 设置对应的构建目标
-        override: true
+      - name: Setup Rust environment
+        uses: actions-rs/toolchain@v1 # 设置 Rust 工具链
+        with:
+          profile: minimal # 选择最小化配置
+          toolchain: stable # 使用稳定版的工具链
+          target: ${{ matrix.target }} # 使用矩阵中定义好的目标平台
+          override: true
 
-    - name: Build and rename
-      run: |
-        cargo build --release --target ${{ matrix.target }}
-        output_file=clash_config_manager-${{ matrix.target }}
-        mv target/${{ matrix.target }}/release/clash_config_manager target/${{ matrix.target }}/release/$output_file
+      - name: Build and rename
+        run: |
+          # 构建项目
+          cargo build --release --target ${{ matrix.target }}
+          # 给构建的二进制文件重命名，避免混淆
+          output_file=clash_config_manager-${{ matrix.target }}
+          mv target/${{ matrix.target }}/release/clash_config_manager target/${{ matrix.target }}/release/$output_file
 
-    - name: Create Release and Upload Release Asset
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        token: ${{ secrets.RELEASE_GITHUB_TOKEN }}
-        tag_name: ${{ github.ref }}
-        name: Release ${{ github.ref }}
-        body: 新的发布版本
-        draft: false
-        prerelease: false
-        files: target/${{ matrix.target }}/release/clash_config_manager-${{ matrix.target }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2 # 上传构建成果为 artifact 以供后续步骤使用
+        with:
+          name: clash_config_manager-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/clash_config_manager-${{ matrix.target }}
+
+  release:
+    needs: build # 此 job 需要等待 build job 完成
+    runs-on: ubuntu-20.04
+    if: startsWith(github.ref, 'refs/tags/') # 只有在标签推送时才运行
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v2 # 再次检出代码
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v2 # 下载 build job 中上传的所有 artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1 # 创建 GitHub Release，并将 artifacts 附加到 release
+        with:
+          token: ${{ secrets.RELEASE_GITHUB_TOKEN }} # 需要提供 token 以便操作 release
+          tag_name: ${{ github.ref }} # 标签名用于版本发布
+          name: ${{ github.ref }} # 发布的名称
+          body: 新的发布版本 # 发布的描述
+          draft: false # 不创建草稿版本
+          prerelease: false # 不创建预发布版本
