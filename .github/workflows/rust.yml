@@ -7,16 +7,11 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu
-            runs-on: ubuntu-latest
-          - target: x86_64-unknown-linux-musl
-            runs-on: ubuntu-latest
-          - target: x86_64-apple-darwin
-            runs-on: macos-latest
+        target: [x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl] # 定义构建的目标平台
+    runs-on: ubuntu-20.04 # 这个作业运行在最新版的Ubuntu上
+
     steps:
     - name: Checkout source # 获取源码
       uses: actions/checkout@v2
