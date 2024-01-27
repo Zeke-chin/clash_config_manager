@@ -39,6 +39,10 @@ async fn fetch_and_process(url: &str, now_local: &chrono::DateTime<Local>) -> Re
         let mut data: Value = serde_yaml::from_slice(&resp_bytes)?;
 
         if let Some(obj) = data.as_mapping_mut() {
+            obj.insert(Value::String("port".into()), Value::String("7890".into()));
+            obj.insert(Value::String("socks-port".into()), Value::String("7891".into()));
+            obj.insert(Value::String("allow-lan".into()), Value::String("true".into()));
+            obj.insert(Value::String("model".into()), Value::String("Rule".into()));
             obj.insert(Value::String("external-controller".into()), Value::String("0.0.0.0:9090".into()));
             obj.insert(Value::String("external-ui".into()), Value::String("/opt/clash/ui".into()));
         }
