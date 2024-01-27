@@ -1,0 +1,40 @@
+name: Rust Release
+
+on:
+  push:
+    tags:
+      - "v*" # 对于匹配 v*的标签（如 v1.0、v2.5.7）的push事件。
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # 这个作业运行在最新版的Ubuntu上
+
+    steps:
+    - name: Checkout source # 获取源码
+      uses: actions/checkout@v2
+
+    - name: Setup Rust environment # 设置Rust环境
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+
+    - name: Build # 构建
+      run: cargo build --release
+
+    - name: Zip the Build # 对构建产物进行zip打包
+      run: zip -r ${{ secrets.ReleaseZipName }} ./target/release/ # 改为你的应用名
+
+    - name: Create Release and Upload Release Asset # 创建新的发布版本并上传
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/') # 只有在refs中有tags时才执行
+      with:
+        tag_name: ${{ github.ref }} # 用具有refs/tags的github引用命名tag
+        name: Release ${{ github.ref }}
+        body: 新的发布版本
+        draft: false
+        prerelease: false
+        files: |
+          ${{ secrets.ReleaseZipName }}.zip
+          LICENSE
