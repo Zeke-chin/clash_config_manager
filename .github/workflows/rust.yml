@@ -7,24 +7,31 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # 这个作业运行在最新版的Ubuntu上
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-musl] # 定义构建的目标平台
+    runs-on: ubuntu-20.04 # 这个作业运行在最新版的Ubuntu上
 
     steps:
     - name: Checkout source # 获取源码
       uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: sudo sed -i "s#archive.ubuntu.com#mirrors.aliyun.com#g" /etc/apt/sources.list && sudo sed -i "s#security.ubuntu.com#mirrors.aliyun.com#g" /etc/apt/sources.list && sudo apt-get update && sudo apt-get install -y musl-tools
 
     - name: Setup Rust environment # 设置Rust环境
       uses: actions-rs/toolchain@v1
       with:
         profile: minimal
         toolchain: stable
+        target: ${{ matrix.target }} # 设置对应的构建目标
         override: true
 
     - name: Build # 构建
-      run: cargo build --release
+      run: cargo build --release --target ${{ matrix.target }}
 
     - name: Zip the Build # 对构建产物进行zip打包
-      run: zip -r ${{ secrets.ReleaseZipName }} ./target/release/ # 改为你的应用名
+      run: zip -r ${{ secrets.ReleaseZipName }}-${{ matrix.target }} ./target/${{ matrix.target }}/release/ # 改为你的应用名
 
     - name: Create Release and Upload Release Asset # 创建新的发布版本并上传
       uses: softprops/action-gh-release@v1
@@ -36,5 +43,5 @@ jobs:
         draft: false
         prerelease: false
         files: |
-          ${{ secrets.ReleaseZipName }}.zip
+          ${{ secrets.ReleaseZipName }}-${{ matrix.target }}.zip
           LICENSE
