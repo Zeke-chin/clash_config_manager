@@ -43,7 +43,7 @@ jobs:
           mv target/${{ matrix.target }}/release/clash_config_manager target/${{ matrix.target }}/release/$output_file
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2 # 上传构建成果为 artifact 以供后续步骤使用
+        uses: actions/upload-artifact@v4 # 上传构建成果为 artifact 以供后续步骤使用
         with:
           name: clash_config_manager-${{ matrix.target }}
           path: target/${{ matrix.target }}/release/clash_config_manager-${{ matrix.target }}
@@ -57,7 +57,7 @@ jobs:
         uses: actions/checkout@v2 # 再次检出代码
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           path: release-assets # 将 artifacts 下载到‘release-assets’目录
 
