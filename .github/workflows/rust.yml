@@ -26,21 +26,20 @@ jobs:
         toolchain: stable
         target: ${{ matrix.target }} # 设置对应的构建目标
         override: true
+    - name: Build and rename
+      run: |
+        cargo build --release --target ${{ matrix.target }}
+        output_file=clash_config_manager_${{ matrix.target }}
+        mv target/${{ matrix.target }}/release/clash_config_manager target/${{ matrix.target }}/release/$output_file
 
-    - name: Build # 构建
-      run: cargo build --release --target ${{ matrix.target }}
-
-    - name: Zip the Build # 对构建产物进行zip打包
-      run: zip -r ${{ secrets.ReleaseZipName }}-${{ matrix.target }} ./target/${{ matrix.target }}/release/ # 改为你的应用名
-
-    - name: Create Release and Upload Release Asset # 创建新的发布版本并上传
+    - name: Create Release and Upload Release Asset
       uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/') # 只有在refs中有tags时才执行
+      if: startsWith(github.ref, 'refs/tags/')
       with:
-        token: ${{ secrets.RELEASE_GITHUB_TOKEN }} # 使用你刚刚创建的secret
-        tag_name: ${{ github.ref }} # 用具有refs/tags的github引用命名tag
+        token: ${{ secrets.RELEASE_GITHUB_TOKEN }}
+        tag_name: ${{ github.ref }}
         name: Release ${{ github.ref }}
         body: 新的发布版本
         draft: false
         prerelease: false
-        files: target/${{ matrix.target }}/release/clash_config_manager
+        files: target/${{ matrix.target }}/release/*
