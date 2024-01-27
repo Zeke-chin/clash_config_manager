@@ -63,6 +63,8 @@ jobs:
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
+        run : | 
+          pwd
         with:
           token: ${{ secrets.RELEASE_GITHUB_TOKEN }}
           tag_name: ${{ github.ref }}
