@@ -60,7 +60,6 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           path: release-assets # 将 artifacts 下载到‘release-assets’目录
-        run : ls -Rhl release-assets/
 
 
       - name: Create Release
