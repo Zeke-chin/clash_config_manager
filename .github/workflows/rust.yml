@@ -26,10 +26,11 @@ jobs:
         toolchain: stable
         target: ${{ matrix.target }} # 设置对应的构建目标
         override: true
+
     - name: Build and rename
       run: |
         cargo build --release --target ${{ matrix.target }}
-        output_file=clash_config_manager_${{ matrix.target }}
+        output_file=clash_config_manager-${{ matrix.target }}
         mv target/${{ matrix.target }}/release/clash_config_manager target/${{ matrix.target }}/release/$output_file
 
     - name: Create Release and Upload Release Asset
@@ -42,4 +43,4 @@ jobs:
         body: 新的发布版本
         draft: false
         prerelease: false
-        files: target/${{ matrix.target }}/release/*
+        files: target/${{ matrix.target }}/release/clash_config_manager-${{ matrix.target }}
