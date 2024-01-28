@@ -1,6 +1,7 @@
 use std::fs;
 use std::result::Result;
 use std::error::Error;
+use std::process::Command;
 use serde_yaml::Value;
 use chrono::Local;
 use reqwest::get;
@@ -24,8 +25,9 @@ struct Args {
 }
 
 // 数据获取及处理
-async fn fetch_and_process(url: &str, now_local: &chrono::DateTime<Local>) -> Result<String, Box<dyn Error>> {
+async fn fetch_and_process(url: &str) -> Result<String, Box<dyn Error>> {
     let response = get(url).await?;
+    let now_local = Local::now();
 
     let s_char = "#".repeat(20);
     let comment = format!("{}\n#\turl: {}\n#\t#更新时间: {}\n{}",
@@ -39,9 +41,9 @@ async fn fetch_and_process(url: &str, now_local: &chrono::DateTime<Local>) -> Re
         let mut data: Value = serde_yaml::from_slice(&resp_bytes)?;
 
         if let Some(obj) = data.as_mapping_mut() {
-            obj.insert(Value::String("port".into()), Value::String("7890".into()));
-            obj.insert(Value::String("socks-port".into()), Value::String("7891".into()));
-            obj.insert(Value::String("allow-lan".into()), Value::String("true".into()));
+            obj.insert(Value::String("port".into()), Value::Number(7890.into()));
+            obj.insert(Value::String("socks-port".into()), Value::Number(7891.into()));
+            obj.insert(Value::String("allow-lan".into()), Value::Bool(true));
             obj.insert(Value::String("model".into()), Value::String("Rule".into()));
             obj.insert(Value::String("external-controller".into()), Value::String("0.0.0.0:9090".into()));
             obj.insert(Value::String("external-ui".into()), Value::String("/opt/clash/ui".into()));
@@ -63,6 +65,25 @@ fn write_to_file(path: &str, data: &str) -> std::io::Result<()> {
     fs::write(path, data)
 }
 
+// clash 重启
+fn restart_clash() {
+    // supervisorctl restart clash
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg("supervisorctl restart clash")
+        .output()
+        .expect("Failed to execute command for restart clash");
+    let now_local = Local::now();
+
+    if output.status.success() {
+        let result = String::from_utf8_lossy(&output.stdout);
+        println!("{}\t命令输出: \n{}",now_local.format("%Y-%m-%d %H:%M:%S"), result);
+    } else {
+        let error_message = String::from_utf8_lossy(&output.stderr);
+        eprintln!("{}\t命令执行错误: {}",now_local.format("%Y-%m-%d %H:%M:%S"), error_message);
+    }
+}
+
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -78,10 +99,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     loop {
         let now_local = Local::now();
-        match fetch_and_process(&args.clash_url, &now_local).await {
+        match fetch_and_process(&args.clash_url).await {
             Ok(save_string) => {
                 write_to_file(&args.file_path, &save_string)?;
                 println!("{}\t文件保存成功 -> {}", now_local.format("%Y-%m-%d %H:%M:%S"), args.file_path);
+                restart_clash()
             }
             Err(e) => {
                 println!("{}\t文件保存失败: {}", now_local.format("%Y-%m-%d %H:%M:%S"), e);
