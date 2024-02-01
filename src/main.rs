@@ -1,12 +1,13 @@
-use std::fs;
-use std::result::Result;
-use std::error::Error;
-use std::process::Command;
-use serde_yaml::Value;
-use chrono::Local;
-use reqwest::get;
 use async_std::task;
+use chrono::Local;
 use clap::Parser;
+use core::panic;
+use reqwest::get;
+use serde_yaml::Value;
+use std::error::Error;
+use std::fs;
+use std::process::Command;
+use std::result::Result;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -30,11 +31,7 @@ async fn fetch_and_process(url: &str) -> Result<String, Box<dyn Error>> {
     let now_local = Local::now();
 
     let s_char = "#".repeat(20);
-    let comment = format!("{}\n#\turl: {}\n#\t#更新时间: {}\n{}",
-                          s_char,
-                          url,
-                          now_local.format("%Y-%m-%d %H:%M:%S"),
-                          s_char);
+    let comment = format!("{}\n#\turl: {}\n#\t#更新时间: {}\n{}", s_char, url, now_local.format("%Y-%m-%d %H:%M:%S"), s_char);
 
     if response.status().is_success() {
         let resp_bytes = response.bytes().await?;
@@ -59,7 +56,6 @@ async fn fetch_and_process(url: &str) -> Result<String, Box<dyn Error>> {
     }
 }
 
-
 // 写文件
 fn write_to_file(path: &str, data: &str) -> std::io::Result<()> {
     fs::write(path, data)
@@ -77,13 +73,12 @@ fn restart_clash() {
 
     if output.status.success() {
         let result = String::from_utf8_lossy(&output.stdout);
-        println!("{}\t命令输出: \n{}",now_local.format("%Y-%m-%d %H:%M:%S"), result);
+        println!("{}\t命令输出: \n{}", now_local.format("%Y-%m-%d %H:%M:%S"), result);
     } else {
         let error_message = String::from_utf8_lossy(&output.stderr);
-        eprintln!("{}\t命令执行错误: {}",now_local.format("%Y-%m-%d %H:%M:%S"), error_message);
+        eprintln!("{}\t命令执行错误: {}", now_local.format("%Y-%m-%d %H:%M:%S"), error_message);
     }
 }
-
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -92,10 +87,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // let url = args.url;
     // let file_path = "response.yml";
     // let update_interval_by_secs = 60;
-    println!("服务已经启动.......... \nurl: {} \nfile_path: {} \nupdate_interval_by_secs: {}s\n\n",
-             args.clash_url,
-             args.file_path,
-             args.update_interval_by_secs);
+    let retry_interval = 3;
+    let mut retry_count = 0;
+    println!(
+        "服务已经启动.......... \nurl: {} \nfile_path: {} \nupdate_interval_by_secs: {}s\n\n",
+        args.clash_url, args.file_path, args.update_interval_by_secs
+    );
 
     loop {
         let now_local = Local::now();
@@ -103,13 +100,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
             Ok(save_string) => {
                 write_to_file(&args.file_path, &save_string)?;
                 println!("{}\t文件保存成功 -> {}", now_local.format("%Y-%m-%d %H:%M:%S"), args.file_path);
-                restart_clash()
+                restart_clash();
+                retry_count = 0
             }
             Err(e) => {
                 println!("{}\t文件保存失败: {}", now_local.format("%Y-%m-%d %H:%M:%S"), e);
+                if retry_count > 4 {
+                    panic!("{}\t重试次数超过5次 退出\terror:\t{}", now_local.format("%Y-%m-%d %H:%M:%S"), e)
+                }
+                retry_count += 1;
             }
         }
-
-        task::sleep(std::time::Duration::from_secs(args.update_interval_by_secs)).await;
+        if retry_count > 0 {
+            println!("{}\t等待 {} s后 重试第{}次", now_local.format("%Y-%m-%d %H:%M:%S"), retry_interval, retry_count);
+            task::sleep(std::time::Duration::from_secs(retry_interval)).await;
+        } else {
+            task::sleep(std::time::Duration::from_secs(args.update_interval_by_secs)).await;
+        }
     }
 }
