@@ -1,27 +1,25 @@
-linux-amd64-musl:
-	rustup target add x86_64-unknown-linux-musl
-	cargo build --release --target=x86_64-unknown-linux-musl
+# 设置基本的Rust构建命令
+CARGO_BUILD = cargo build --release --target
 
-linux--amd64-gnu:
-	#rustup target add x86_64-unknown-linux-gnu
-	cargo build --release --target=x86_64-unknown-linux-gnu
+# 定义二进制文件名和目标文件夹
+BINARY_NAME = clash_config_manager
+BIN_DIR = target/bin
 
-linux-arm64-musl:
-	#rustup target add aarch64-unknown-linux-musl
-	cargo build --release --target=aarch64-unknown-linux-musl
+# 定义目标平台数组
+TARGETS = x86_64-unknown-linux-musl x86_64-unknown-linux-gnu \
+          aarch64-unknown-linux-musl aarch64-unknown-linux-gnu \
+          x86_64-pc-windows-gnu aarch64-apple-darwin x86_64-apple-darwin
 
-linux-arm64-gnu:
-	#rustup target add aarch64-unknown-linux-gnu
-	cargo build --release --target=aarch64-unknown-linux-gnu
+.PHONY: $(TARGETS) all
 
-windows:
-	#rustup target add x86_64-pc-windows-gnu
-	cargo build --release --target=x86_64-pc-windows-gnu
+# 默认命令 - 构建所有目标
+all: $(TARGETS)
 
-macos-arm64:
-	#rustup target add aarch64-apple-darwin
-	cargo build --release --target=aarch64-apple-darwin
-
-macos-x86_64:
-	#rustup target add x86_64-apple-darwin
-	cargo build --release --target=x86_64-apple-darwin
+# 定义构建规则
+$(TARGETS):
+	@echo "Adding Rust target $@"
+	@rustup target add $@
+	@echo "Building for target $@"
+	@mkdir -p "$(BIN_DIR)"
+	@$(CARGO_BUILD) $@
+	@cp "target/$@/release/$(BINARY_NAME)" "$(BIN_DIR)/$@-$(BINARY_NAME)"
